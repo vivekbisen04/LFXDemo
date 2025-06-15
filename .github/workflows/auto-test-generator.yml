@@ -1,0 +1,66 @@
+name: Auto Test Generator
+
+on:
+  push:
+    branches: [ main ]
+  workflow_dispatch: # Allow manual triggering for testing
+
+jobs:
+  generate-tests:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+      issues: write
+      actions: read
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 0 # Need full history to analyze changes
+        token: ${{ secrets.GITHUB_TOKEN }}
+
+    - name: Set up Go
+      uses: actions/setup-go@v4
+      with:
+        go-version: '1.21'
+
+    - name: Install dependencies
+      run: |
+        cd scripts
+        go mod download
+
+    - name: Get PR information
+      id: pr_info
+      run: |
+        # Get the PR number that was just merged
+        PR_NUMBER=$(gh pr list --state merged --limit 1 --json number --jq '.[0].number')
+        echo "pr_number=$PR_NUMBER" >> $GITHUB_OUTPUT
+        
+        # Get changed files from the latest commit
+        CHANGED_FILES=$(git diff --name-only HEAD~1 HEAD | grep '\.go$' | grep -v '_test\.go$' || true)
+        echo "changed_files<<EOF" >> $GITHUB_OUTPUT
+        echo "$CHANGED_FILES" >> $GITHUB_OUTPUT
+        echo "EOF" >> $GITHUB_OUTPUT
+      env:
+        GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+    - name: Run test generator
+      if: steps.pr_info.outputs.changed_files != ''
+      run: |
+        cd scripts
+        echo "Processing files: ${{ steps.pr_info.outputs.changed_files }}"
+        go run . \
+          --pr-number="${{ steps.pr_info.outputs.pr_number }}" \
+          --changed-files="${{ steps.pr_info.outputs.changed_files }}" \
+          --repo-owner="${{ github.repository_owner }}" \
+          --repo-name="${{ github.event.repository.name }}" \
+          --github-token="${{ secrets.GITHUB_TOKEN }}" \
+          --gemini-api-key="${{ secrets.GEMINI_API_KEY }}"
+
+    - name: Clean up
+      if: always()
+      run: |
+        # Clean up any temporary files or branches if needed
+        echo "Cleanup completed"

@@ -209,3 +209,16 @@ func runCommand(cmd string) (string, error) {
 	// For now, we'll skip the actual validation to avoid complexity
 	return "", nil
 }
+
+// Add this method to TestGenerator struct
+func (tg *TestGenerator) resolveFilePath(filePath string) string {
+    // Check if we're running from scripts directory
+    if wd, err := os.Getwd(); err == nil {
+        if strings.HasSuffix(wd, "/scripts") || strings.HasSuffix(wd, "\\scripts") {
+            // We're in scripts directory, so prepend ../ to access repo root files
+            return filepath.Join("..", filePath)
+        }
+    }
+    // Otherwise, use the path as-is
+    return filePath
+}

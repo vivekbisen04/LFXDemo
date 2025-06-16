@@ -31,21 +31,61 @@ func NewCoverageAnalyzer() *CoverageAnalyzer {
 	}
 }
 
+// resolveFilePath converts relative paths to absolute paths from repo root
+func (ca *CoverageAnalyzer) resolveFilePath(filePath string) string {
+	// Check if we're running from scripts directory
+	if wd, err := os.Getwd(); err == nil {
+		if strings.HasSuffix(wd, "/scripts") || strings.HasSuffix(wd, "\\scripts") {
+			// We're in scripts directory, so prepend ../ to access repo root files
+			return filepath.Join("..", filePath)
+		}
+	}
+	// Otherwise, use the path as-is
+	return filePath
+}
+
 func (ca *CoverageAnalyzer) AnalyzeFile(ctx context.Context, filePath string, threshold float64) (needsTests bool, coverage float64, err error) {
+	// Resolve the file path
+	resolvedPath := ca.resolveFilePath(filePath)
+	
 	// Check if test file already exists
-	testFile := strings.TrimSuffix(filePath, ".go") + "_test.go"
+	testFile := strings.TrimSuffix(resolvedPath, ".go") + "_test.go"
 	if _, err := os.Stat(testFile); os.IsNotExist(err) {
 		// No test file exists, definitely needs tests
 		return true, 0.0, nil
 	}
 
 	// Run coverage analysis for the specific package
-	packageDir := filepath.Dir(filePath)
+	packageDir := filepath.Dir(resolvedPath)
 	if packageDir == "" {
 		packageDir = "."
 	}
 
-	cmd := exec.CommandContext(ctx, "go", "test", "-cover", "-coverprofile=coverage.out", packageDir)
+	// Change to the package directory for running tests
+	originalDir, err := os.Getwd()
+	if err != nil {
+		return false, 0.0, fmt.Errorf("failed to get current directory: %v", err)
+	}
+
+	// Convert package directory to absolute path
+	absPackageDir, err := filepath.Abs(packageDir)
+	if err != nil {
+		return false, 0.0, fmt.Errorf("failed to get absolute path: %v", err)
+	}
+
+	// Change to package directory
+	if err := os.Chdir(absPackageDir); err != nil {
+		return false, 0.0, fmt.Errorf("failed to change to package directory: %v", err)
+	}
+
+	// Ensure we change back to original directory
+	defer func() {
+		os.Chdir(originalDir)
+		// Clean up coverage file
+		os.Remove("coverage.out")
+	}()
+
+	cmd := exec.CommandContext(ctx, "go", "test", "-cover", "-coverprofile=coverage.out", ".")
 	output, err := cmd.CombinedOutput()
 	if err != nil {
 		// If tests fail to run, we might still want to generate tests
@@ -61,9 +101,6 @@ func (ca *CoverageAnalyzer) AnalyzeFile(ctx context.Context, filePath string, th
 	if err != nil {
 		return false, 0.0, fmt.Errorf("failed to parse coverage output: %v", err)
 	}
-
-	// Clean up coverage file
-	os.Remove("coverage.out")
 
 	needsTests = coverage < threshold
 	return needsTests, coverage, nil
@@ -89,14 +126,17 @@ func (ca *CoverageAnalyzer) parseCoverageOutput(output string) (float64, error) 
 }
 
 func (ca *CoverageAnalyzer) ExtractModifiedFunctions(ctx context.Context, filePath string) ([]FunctionInfo, error) {
+	// Resolve the file path
+	resolvedPath := ca.resolveFilePath(filePath)
+	
 	// Read the file
-	content, err := os.ReadFile(filePath)
+	content, err := os.ReadFile(resolvedPath)
 	if err != nil {
 		return nil, fmt.Errorf("failed to read file: %v", err)
 	}
 
 	// Parse the Go file
-	node, err := parser.ParseFile(ca.fileSet, filePath, content, parser.ParseComments)
+	node, err := parser.ParseFile(ca.fileSet, resolvedPath, content, parser.ParseComments)
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse file: %v", err)
 	}

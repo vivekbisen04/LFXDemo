@@ -1,4 +1,4 @@
-package factorial
+package pkg
 
 import "errors"
 

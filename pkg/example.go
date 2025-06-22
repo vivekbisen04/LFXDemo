@@ -1,8 +1,8 @@
-package pkg
+package calculator
 
 import (
-	"fmt"
 	"errors"
+	"fmt"
 )
 
 // Calculator provides basic arithmetic operations
@@ -24,6 +24,13 @@ func (c *Calculator) Add(a, b int) int {
 	return result
 }
 
+// Multiply performs multiplication of two numbers
+func (c *Calculator) Multiply(a, b int) int {
+	result := a * b
+	c.history = append(c.history, fmt.Sprintf("%d * %d = %d", a, b, result))
+	return result
+}
+
 // Divide performs division with error handling
 func (c *Calculator) Divide(a, b int) (int, error) {
 	if b == 0 {
@@ -37,9 +44,4 @@ func (c *Calculator) Divide(a, b int) (int, error) {
 // GetHistory returns the calculation history
 func (c *Calculator) GetHistory() []string {
 	return c.history
-}
-
-// Clear resets the calculator history
-func (c *Calculator) Clear() {
-	c.history = make([]string, 0)
 }

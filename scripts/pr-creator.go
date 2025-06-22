@@ -2,7 +2,7 @@ package main
 
 import (
 	"context"
-	"encoding/base64"
+	// "encoding/base64"
 	"fmt"
 	"strconv"
 	"strings"
@@ -96,14 +96,11 @@ func (pc *PRCreator) createOrUpdateFile(ctx context.Context, filePath, content, 
 		Ref: branchName,
 	})
 
-	// Encode content
-	encodedContent := base64.StdEncoding.EncodeToString([]byte(content))
-
 	if err != nil && resp.StatusCode == 404 {
 		// File doesn't exist, create it
 		fileOptions := &github.RepositoryContentFileOptions{
 			Message: github.String(fmt.Sprintf("Add auto-generated tests for %s", filePath)),
-			Content: []byte(encodedContent),
+			Content: []byte(content), // FIXED: Use raw content bytes
 			Branch:  github.String(branchName),
 		}
 
@@ -117,7 +114,7 @@ func (pc *PRCreator) createOrUpdateFile(ctx context.Context, filePath, content, 
 		// File exists, update it
 		fileOptions := &github.RepositoryContentFileOptions{
 			Message: github.String(fmt.Sprintf("Update auto-generated tests for %s", filePath)),
-			Content: []byte(encodedContent),
+			Content: []byte(content), // FIXED: Use raw content bytes
 			Branch:  github.String(branchName),
 			SHA:     existingFile.SHA,
 		}

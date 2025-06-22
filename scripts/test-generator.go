@@ -146,7 +146,7 @@ func (tg *TestGenerator) extractPackageInfo(content string) (packageName string,
 	return packageName, imports
 }
 
-func (tg *TestGenerator) cleanupGeneratedCode(generatedCode, packageName string, imports []string) string {
+func (tg *TestGenerator) cleanupGeneratedCode(generatedCode, packageName string, _ []string) string {
 	// Remove markdown code blocks if present
 	generatedCode = strings.ReplaceAll(generatedCode, "```go", "")
 	generatedCode = strings.ReplaceAll(generatedCode, "```", "")
@@ -218,11 +218,11 @@ func (tg *TestGenerator) validateGeneratedCode(originalFilePath, testContent str
 	return nil
 }
 
-func runCommand(cmd string) (string, error) {
-	// This is a simplified version - in production you'd want proper command execution
-	// For now, we'll skip the actual validation to avoid complexity
-	return "", nil
-}
+// func runCommand(cmd string) (string, error) {
+// 	// This is a simplified version - in production you'd want proper command execution
+// 	// For now, we'll skip the actual validation to avoid complexity
+// 	return "", nil
+// }
 
 // Add this method to TestGenerator struct
 func (tg *TestGenerator) resolveFilePath(filePath string) string {
